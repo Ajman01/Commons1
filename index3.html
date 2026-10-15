@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commons Caption Tool</title>
+<style>
+  :root{ --bg:#dcdcdc; --text:#000; --muted:#444; --line:#bdbdbd; --dark:#4d4d4d; --yellow:#ffcc33; --ok:#14653a; --err:#b42318; --warn:#8a5a00; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,Helvetica,"Noto Sans Malayalam",sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+  header{background:#000;padding:22px 26px}
+  header h1{font-size:46px;font-weight:900;margin:0;color:#fff;letter-spacing:-.5px;line-height:1.1}
+  main{max-width:1150px;margin:0 auto;padding:22px 26px}
+  .card{background:transparent;border:none;padding:0;margin-bottom:28px}
+  .bar{background:var(--yellow);padding:5px 12px;font-size:15px;text-transform:uppercase;margin:0 0 14px}
+  label{display:block;font-size:14px;margin:0 0 5px}
+  input[type=text],select{width:100%;padding:12px;border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--text);font:inherit;font-size:16px}
+  select{width:auto;padding:6px 8px;font-size:14px}
+  input:focus,select:focus{outline:3px solid var(--yellow);outline-offset:0}
+  button{font:inherit;padding:10px 18px;border-radius:2px;border:1px solid var(--dark);background:#fff;color:var(--dark);cursor:pointer}
+  button.primary{background:var(--dark);color:#fff;border-color:var(--dark)}
+  button.full{width:100%;font-size:17px;padding:12px;margin-top:12px}
+  button.small{padding:3px 10px;font-size:13px}
+  button:hover:not(:disabled){filter:brightness(.92)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:13px}
+  .langs{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .langs label.chk{display:inline-flex;gap:6px;align-items:center;margin:0;font-size:15px}
+  #work{display:none;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:26px}
+  @media (max-width:850px){ #work{grid-template-columns:1fr} header h1{font-size:34px} }
+  .imgbox{display:flex;align-items:center;justify-content:center;min-height:320px;background:#cbcbcb;overflow:hidden}
+  .imgbox img{max-width:100%;max-height:72vh;display:block}
+  .field{margin-bottom:14px}
+  .count{float:right;font-weight:400;color:var(--muted)}
+  .existing{font-size:13px;color:var(--muted);margin-bottom:10px}
+  .status{min-height:22px;font-size:14px;margin-top:10px}
+  .ok{color:var(--ok)} .err{color:var(--err)} .warn{color:var(--warn)}
+  .title{font-weight:700;word-break:break-word;font-size:18px}
+  .stats{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  a{color:#000}
+  table{width:100%;border-collapse:collapse;font-size:14px;background:#fff}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;color:var(--muted);background:#efefef}
+  .tablewrap{max-height:320px;overflow:auto;margin-top:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Commons Caption Tool</h1>
+</header>
+
+<main>
+  <section class="card">
+    <div class="bar">Category</div>
+    <label for="cat">Commons category</label>
+    <input type="text" id="cat">
+    <button class="primary full" id="startBtn">Start</button>
+
+    <div class="langs">
+      <b style="font-size:13px">Caption language(s):</b>
+      <span id="langBoxes"></span>
+      <span style="display:inline-flex;gap:6px;align-items:center">
+        <label for="mode" style="margin:0;font-weight:500;font-size:14px">Load files missing</label>
+        <select id="mode" style="width:auto;padding:6px 8px">
+          <option value="all">all selected languages</option>
+          <option value="any">any selected language</option>
+        </select>
+      </span>
+    </div>
+  </section>
+
+  <section id="work">
+    <div class="card">
+      <div class="bar">Image</div>
+      <div class="imgbox" id="imgbox"><span class="muted">Loading…</span></div>
+    </div>
+    <div class="card">
+      <div class="bar">Captions</div>
+      <div class="title" id="fileTitle"></div>
+      <p class="muted" style="margin:4px 0 10px"><a id="fileLink" target="_blank" rel="noopener">Open file page on Commons ↗</a></p>
+      <div class="existing" id="existing"></div>
+
+      <div id="fields"></div>
+
+      <div class="row">
+        <button class="primary" id="saveBtn">Save &amp; next</button>
+        <button id="skipBtn">Skip</button>
+        <button id="undoBtn">Undo last</button>
+      </div>
+      <p class="muted" style="margin:8px 0 0">Shortcut: Ctrl/⌘ + Enter to save. At least one caption is needed.</p>
+      <div class="status" id="status"></div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+      <div class="stats">
+        <span>Saved: <b id="nSaved">0</b></span>
+        <span>Skipped: <b id="nSkip">0</b></span>
+        <span>Checked: <b id="nChecked">0</b></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="bar">Export</div>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div class="muted"><span id="nSaved2">0</span> files saved</div>
+      <div class="row">
+        <button class="primary" id="dlTxt">Download</button>
+        <button id="dlCsv">Download CSV</button>
+        <button id="copyTxt">Copy commands</button>
+        <button id="clearAll">Clear saved</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr id="savedHead"></tr></thead>
+        <tbody id="savedBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+/* Add or remove languages here: [code, display name] */
+const LANGS = [["en","English"],["ml","Malayalam"],["ta","Tamil"],["hi","Hindi"],["ar","Arabic"]];
+const DEFAULT_SELECTED = ["en","ml"];
+
+const API = "https://commons.wikimedia.org/w/api.php";
+const STORE = "ccaption_saved_v2";
+const $ = id => document.getElementById(id);
+const langName = c => (LANGS.find(l => l[0]===c) || [c,c])[1];
+
+const S = { queue:[], cont:null, done:false, seen:new Set(), current:null, skip:0, checked:0, category:"", langs:[], mode:"all", shown:[] };
+let saved = loadSaved();
+
+/* ---------- storage ---------- */
+function loadSaved(){
+  try{
+    let a = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (a) return a;
+    // migrate from earlier version (en/ml only)
+    const old = JSON.parse(localStorage.getItem("ccaption_saved_v1") || "[]");
+    return old.map(x => ({ pageid:x.pageid, title:x.title, labels:{ en:x.en, ml:x.ml } }));
+  }catch(e){ return []; }
+}
+function persist(){ try{ localStorage.setItem(STORE, JSON.stringify(saved)); }catch(e){ setStatus("Could not save to browser storage. Export now.","warn"); } }
+
+/* ---------- helpers ---------- */
+function setStatus(msg, cls=""){ const s=$("status"); s.textContent=msg; s.className="status "+cls; }
+async function api(params){
+  const p = Object.assign({ format:"json", formatversion:"2", origin:"*" }, params);
+  const res = await fetch(API + "?" + new URLSearchParams(p));
+  const j = await res.json();
+  if (j.error) throw new Error(j.error.info || j.error.code);
+  return j;
+}
+function clean(s){ return s.replace(/[\t\r\n]+/g," ").replace(/"/g,"\u201D").trim(); }
+const savedFor = pid => saved.find(x => x.pageid === pid);
+
+/* ---------- language selector ---------- */
+function buildLangBoxes(){
+  const box = $("langBoxes");
+  LANGS.forEach(([code,name]) => {
+    const l = document.createElement("label"); l.className="chk";
+    const c = document.createElement("input"); c.type="checkbox"; c.value=code; c.checked = DEFAULT_SELECTED.includes(code);
+    l.append(c, document.createTextNode(name)); box.appendChild(l); box.appendChild(document.createTextNode(" "));
+  });
+}
+const selectedLangs = () => [...document.querySelectorAll("#langBoxes input:checked")].map(i => i.value);
+
+/* ---------- candidate loading ---------- */
+async function fillQueue(){
+  while (S.queue.length === 0 && !S.done){
+    const p = { action:"query", list:"categorymembers", cmtitle:"Category:"+S.category, cmtype:"file", cmlimit:"50" };
+    if (S.cont) p.cmcontinue = S.cont;
+    const j = await api(p);
+    const members = (j.query && j.query.categorymembers) || [];
+    S.cont = j.continue ? j.continue.cmcontinue : null;
+    if (!S.cont) S.done = true;
+    const fresh = members.filter(m => !S.seen.has(m.pageid));
+    fresh.forEach(m => S.seen.add(m.pageid));
+    if (!fresh.length) continue;
+    const w = await api({ action:"wbgetentities", ids: fresh.map(m => "M"+m.pageid).join("|"), props:"labels" });
+    const ents = w.entities || {};
+    for (const m of fresh){
+      S.checked++;
+      const e = ents["M"+m.pageid];
+      const labels = (e && e.labels) || {};
+      const sv = savedFor(m.pageid);
+      // languages still missing, ignoring captions already saved locally
+      const missing = S.langs.filter(l => !labels[l] && !(sv && sv.labels[l]));
+      const ok = S.mode === "all" ? missing.length === S.langs.length : missing.length > 0;
+      if (!ok) continue;
+      const existing = {};
+      S.langs.forEach(l => { if (labels[l]) existing[l] = labels[l].value; });
+      S.queue.push({ pageid:m.pageid, title:m.title, missing, existing });
+    }
+    $("nChecked").textContent = S.checked;
+  }
+}
+
+function buildFields(langs, prefill){
+  const f = $("fields"); f.innerHTML = ""; S.shown = langs;
+  langs.forEach(code => {
+    const wrap = document.createElement("div"); wrap.className="field";
+    const lab = document.createElement("label"); lab.htmlFor="cap_"+code; lab.textContent = "Caption (" + langName(code) + ") ";
+    const cnt = document.createElement("span"); cnt.className="count"; cnt.textContent="0/250"; lab.appendChild(cnt);
+    const inp = document.createElement("input"); inp.type="text"; inp.id="cap_"+code; inp.maxLength=250; inp.lang=code; inp.autocomplete="off";
+    inp.value = (prefill && prefill[code]) || "";
+    const upd = () => cnt.textContent = inp.value.length + "/250";
+    inp.addEventListener("input", upd); upd();
+    wrap.append(lab, inp); f.appendChild(wrap);
+  });
+}
+
+async function showFile(m, prefill){
+  S.current = m;
+  buildFields(m.missing, prefill);
+  const ex = Object.entries(m.existing || {}).map(([c,v]) => langName(c) + ": " + v);
+  $("existing").textContent = ex.length ? "Already on Commons → " + ex.join(" · ") : "";
+  $("fileTitle").textContent = m.title;
+  $("fileLink").href = "https://commons.wikimedia.org/wiki/" + encodeURIComponent(m.title.replace(/ /g,"_"));
+  $("imgbox").innerHTML = '<span class="muted">Loading image…</span>';
+  try{
+    const j = await api({ action:"query", titles:m.title, prop:"imageinfo", iiprop:"url|mime", iiurlwidth:"1200" });
+    const ii = j.query.pages[0].imageinfo && j.query.pages[0].imageinfo[0];
+    const img = document.createElement("img");
+    img.alt = m.title;
+    img.onerror = () => { $("imgbox").innerHTML = '<span class="warn">Preview not available. Use the file page link.</span>'; };
+    img.src = (ii && (ii.thumburl || ii.url)) || "";
+    $("imgbox").innerHTML = ""; $("imgbox").appendChild(img);
+  }catch(e){
+    $("imgbox").innerHTML = '<span class="warn">Could not load preview.</span>';
+  }
+  $("saveBtn").disabled = false; $("skipBtn").disabled = false;
+  const first = $("fields").querySelector("input"); if (first) first.focus();
+}
+
+async function loadNext(){
+  S.current = null;
+  $("fields").innerHTML = ""; $("existing").textContent = ""; $("fileTitle").textContent = "";
+  $("imgbox").innerHTML = '<span class="muted">Loading next image…</span>';
+  $("saveBtn").disabled = true; $("skipBtn").disabled = true;
+  try{ await fillQueue(); }catch(e){ setStatus("Error: "+e.message,"err"); return; }
+  if (!S.queue.length){
+    $("imgbox").innerHTML = '<span class="ok">No more matching files in this category.</span>';
+    $("fileLink").removeAttribute("href");
+    return;
+  }
+  await showFile(S.queue.shift());
+}
+
+/* ---------- actions ---------- */
+function saveNext(){
+  if (!S.current) return;
+  const labels = {};
+  S.shown.forEach(c => { const v = clean($("cap_"+c).value); if (v) labels[c] = v; });
+  if (!Object.keys(labels).length){ setStatus("Enter at least one caption, or press Skip.","warn"); return; }
+  const prev = savedFor(S.current.pageid);
+  if (prev) Object.assign(prev.labels, labels);
+  else saved.push({ pageid:S.current.pageid, title:S.current.title, labels });
+  persist(); renderSaved();
+  setStatus("Saved ✓","ok");
+  loadNext();
+}
+function skip(){ S.skip++; $("nSkip").textContent=S.skip; setStatus(""); loadNext(); }
+function undo(){
+  if (!saved.length){ setStatus("Nothing to undo.","warn"); return; }
+  const last = saved.pop(); persist(); renderSaved();
+  if (S.current) S.queue.unshift(S.current);
+  setStatus("Last entry restored for editing.","warn");
+  const langs = LANGS.map(l => l[0]).filter(c => S.langs.includes(c) || last.labels[c]);
+  showFile({ pageid:last.pageid, title:last.title, missing:langs, existing:{} }, last.labels);
+}
+function removeAt(i){ saved.splice(i,1); persist(); renderSaved(); }
+
+/* ---------- saved list + export ---------- */
+const usedLangs = () => LANGS.map(l => l[0]).filter(c => saved.some(x => x.labels[c]));
+function renderSaved(){
+  $("nSaved").textContent = saved.length; $("nSaved2").textContent = saved.length;
+  const langs = usedLangs();
+  const head = $("savedHead"); head.innerHTML = "";
+  ["File", ...langs.map(langName), ""].forEach(t => { const th=document.createElement("th"); th.textContent=t; head.appendChild(th); });
+  const tb = $("savedBody"); tb.innerHTML = "";
+  saved.forEach((x,i) => {
+    const tr = document.createElement("tr");
+    [x.title.replace(/^File:/,""), ...langs.map(c => x.labels[c] || "")].forEach(t => { const td=document.createElement("td"); td.textContent=t; tr.appendChild(td); });
+    const td = document.createElement("td"); const b = document.createElement("button");
+    b.className="small"; b.textContent="Remove"; b.onclick=()=>removeAt(i); td.appendChild(b); tr.appendChild(td);
+    tb.appendChild(tr);
+  });
+}
+function qsText(){
+  const out = [];
+  saved.forEach(x => Object.entries(x.labels).forEach(([c,v]) => { if (v) out.push(`M${x.pageid}\tL${c}\t"${v}"`); }));
+  return out.join("\n") + "\n";
+}
+function csvText(){
+  const langs = usedLangs();
+  const q = s => '"' + (s||"").replace(/"/g,'""') + '"';
+  const head = ["qid", ...langs.map(c => "L"+c)].join(",");
+  return [head].concat(saved.map(x => [`M${x.pageid}`, ...langs.map(c => q(x.labels[c]))].join(","))).join("\n") + "\n";
+}
+function download(name, text, type){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type:type+";charset=utf-8" }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+const stamp = () => new Date().toISOString().slice(0,10);
+
+/* ---------- start ---------- */
+function startCategory(){
+  const c = $("cat").value.trim().replace(/^category:/i,"").replace(/_/g," ");
+  const langs = selectedLangs();
+  if (!c) return;
+  if (!langs.length){ alert("Select at least one language."); return; }
+  try{ localStorage.setItem("ccaption_lastcat", c); }catch(e){}
+  Object.assign(S, { queue:[], cont:null, done:false, seen:new Set(), current:null, skip:0, checked:0, category:c, langs, mode:$("mode").value });
+  $("nSkip").textContent="0"; $("nChecked").textContent="0";
+  $("work").style.display="grid";
+  setStatus("");
+  loadNext();
+}
+
+/* ---------- wire up ---------- */
+buildLangBoxes();
+$("startBtn").onclick = startCategory;
+$("cat").addEventListener("keydown", e => { if (e.key==="Enter") startCategory(); });
+$("saveBtn").onclick = saveNext;
+$("skipBtn").onclick = skip;
+$("undoBtn").onclick = undo;
+document.addEventListener("keydown", e => { if ((e.ctrlKey||e.metaKey) && e.key==="Enter") saveNext(); });
+$("dlTxt").onclick = () => saved.length ? download(`commons-captions-${stamp()}.txt`, qsText(), "text/plain") : setStatus("Nothing saved yet.","warn");
+$("dlCsv").onclick = () => saved.length ? download(`commons-captions-${stamp()}.csv`, csvText(), "text/csv") : setStatus("Nothing saved yet.","warn");
+$("copyTxt").onclick = async () => {
+  if (!saved.length) return;
+  try{ await navigator.clipboard.writeText(qsText()); $("copyTxt").textContent="Copied ✓"; setTimeout(()=>$("copyTxt").textContent="Copy commands",1500); }
+  catch(e){ alert("Copy failed. Use the .txt download instead."); }
+};
+$("clearAll").onclick = () => {
+  if (saved.length && confirm("Clear all " + saved.length + " saved entries? Export first if you have not.")){ saved=[]; persist(); renderSaved(); }
+};
+
+try{ $("cat").value = localStorage.getItem("ccaption_lastcat") || ""; }catch(e){}
+renderSaved();
+</script>
+</body>
+</html>
